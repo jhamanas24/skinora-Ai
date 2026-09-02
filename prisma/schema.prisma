@@ -1,0 +1,85 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String          @id @default(cuid())
+  name          String
+  email         String          @unique
+  passwordHash  String
+  role          String          @default("USER") // "USER" | "ADMIN"
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  skinAnalyses  SkinAnalysis[]
+  savedAnalyses SavedAnalysis[]
+}
+
+model Product {
+  id                String           @id @default(cuid())
+  name              String
+  brand             String
+  category          String
+  price             Float
+  size              String
+  image             String
+  description       String
+  ingredients       String           // JSON string of ingredients array
+  claimedBenefits   String           // JSON string of claimed benefits
+  usageInstructions String
+  skinTypes         String           // JSON string of suitable skin types
+  warnings          String           // JSON string of warnings & precautions
+  source            String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  recommendations   Recommendation[]
+}
+
+model SkinAnalysis {
+  id              String           @id @default(cuid())
+  userId          String?
+  user            User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  imagePath       String
+  brightness      Int              // 0 - 100
+  evenness        Int              // 0 - 100
+  darkSpots       String           // "Low" | "Moderate" | "High"
+  redness         String           // "Low" | "Moderate" | "High"
+  texture         String           // "Smooth" | "Moderate" | "Pronounced"
+  pores           String           // "Refined" | "Moderate" | "Visible"
+  appearanceNotes String
+  isDemo          Boolean          @default(false)
+  createdAt       DateTime         @default(now())
+  recommendations Recommendation[]
+}
+
+model Recommendation {
+  id                  String          @id @default(cuid())
+  skinAnalysisId      String
+  skinAnalysis        SkinAnalysis    @relation(fields: [skinAnalysisId], references: [id], onDelete: Cascade)
+  productId           String
+  product             Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  compatibilityScore  Int             // 0 - 100
+  matchLevel          String          // "Strong Match" | "Good Match" | "Consider Carefully" | "Low Match"
+  buyScore            Int             // 0 - 100
+  buyVerdict          String          // "WE RECOMMEND IT" | "WE RECOMMEND CONSIDERING IT" | "PROCEED WITH CAUTION" | "NOT RECOMMENDED"
+  advantages          String          // JSON array of strings
+  cautions            String          // JSON array of strings
+  explanation         String
+  simulationImagePath String?
+  createdAt           DateTime        @default(now())
+  savedAnalyses       SavedAnalysis[]
+}
+
+model SavedAnalysis {
+  id               String         @id @default(cuid())
+  userId           String
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recommendationId String
+  recommendation   Recommendation @relation(fields: [recommendationId], references: [id], onDelete: Cascade)
+  notes            String?
+  createdAt        DateTime       @default(now())
+}
