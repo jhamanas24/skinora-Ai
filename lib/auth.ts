@@ -35,9 +35,30 @@ export async function verifySessionToken(token: string): Promise<UserSession | n
   }
 }
 
-export async function getCurrentUser(): Promise<UserSession | null> {
-  const cookieStore = cookies();
-  const token = cookieStore.get(COOKIE_NAME)?.value;
-  if (!token) return null;
-  return verifySessionToken(token);
+export async function getCurrentUser(req?: Request): Promise<UserSession | null> {
+  try {
+    let token: string | undefined;
+
+    if (req) {
+      const authHeader = req.headers.get('authorization');
+      if (authHeader && authHeader.toLowerCase().startsWith('bearer ')) {
+        token = authHeader.substring(7).trim();
+      }
+    }
+
+    if (!token) {
+      try {
+        const cookieStore = cookies();
+        token = cookieStore.get(COOKIE_NAME)?.value;
+      } catch {
+        // cookies() may throw if called outside Next.js request context
+      }
+    }
+
+    if (!token) return null;
+    return await verifySessionToken(token);
+  } catch (err) {
+    console.warn('getCurrentUser error:', err);
+    return null;
+  }
 }

@@ -31,3 +31,6 @@ prisma/*.db-journal
 
 # User-uploaded/generated images
 public/uploads/
+
+# TypeScript build info
+*.tsbuildinfo

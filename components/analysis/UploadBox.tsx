@@ -30,7 +30,51 @@ export function UploadBox({ onImageSelected }: UploadBoxProps) {
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const processFile = (file: File) => {
+  const compressAndResizeImage = (fileOrBlob: Blob, maxDimension = 1200, quality = 0.85): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          let width = img.width;
+          let height = img.height;
+
+          if (width > maxDimension || height > maxDimension) {
+            if (width > height) {
+              height = Math.round((height * maxDimension) / width);
+              width = maxDimension;
+            } else {
+              width = Math.round((width * maxDimension) / height);
+              height = maxDimension;
+            }
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve(event.target?.result as string);
+            return;
+          }
+
+          ctx.drawImage(img, 0, 0, width, height);
+          const outputDataUrl = canvas.toDataURL('image/jpeg', quality);
+          resolve(outputDataUrl);
+        };
+        img.onerror = () => {
+          reject(new Error('Failed to parse image file'));
+        };
+        img.src = event.target?.result as string;
+      };
+      reader.onerror = () => {
+        reject(new Error('Failed to read image file'));
+      };
+      reader.readAsDataURL(fileOrBlob);
+    });
+  };
+
+  const processFile = async (file: File) => {
     setError(null);
 
     // Validate type
@@ -39,24 +83,22 @@ export function UploadBox({ onImageSelected }: UploadBoxProps) {
       return;
     }
 
-    // Validate size (max 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      setError('Image file size is too large (maximum limit is 10MB).');
+    // Validate size (max 15MB initial pick before compression)
+    if (file.size > 15 * 1024 * 1024) {
+      setError('Image file size is too large (maximum limit is 15MB).');
       return;
     }
 
     setIsProcessing(true);
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const result = e.target?.result as string;
-      setPreview(result);
+    try {
+      const compressedDataUrl = await compressAndResizeImage(file, 1200, 0.85);
+      setPreview(compressedDataUrl);
+    } catch (err: any) {
+      console.error('Image compression error:', err);
+      setError('Failed to process image file. Please try another photo.');
+    } finally {
       setIsProcessing(false);
-    };
-    reader.onerror = () => {
-      setError('Failed to read image file.');
-      setIsProcessing(false);
-    };
-    reader.readAsDataURL(file);
+    }
   };
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
@@ -86,18 +128,13 @@ export function UploadBox({ onImageSelected }: UploadBoxProps) {
     try {
       setIsProcessing(true);
       setError(null);
-      // Fetch image and convert to data URL
       const response = await fetch(url);
       const blob = await response.blob();
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64 = reader.result as string;
-        setPreview(base64);
-        setIsProcessing(false);
-      };
-      reader.readAsDataURL(blob);
+      const compressedDataUrl = await compressAndResizeImage(blob, 1000, 0.85);
+      setPreview(compressedDataUrl);
     } catch {
       setError('Could not load sample image. Please upload your own photo.');
+    } finally {
       setIsProcessing(false);
     }
   };

@@ -2,9 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { generateVisualSimulation } from '@/services/visualSimulation';
 import { getCurrentUser } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 export async function POST(req: NextRequest) {
   try {
-    const user = await getCurrentUser();
+    const user = await getCurrentUser(req);
     if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized. Please sign in to generate visual simulations.' },
@@ -36,4 +39,11 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+export async function GET() {
+  return NextResponse.json(
+    { error: 'Method Not Allowed. Please use POST to generate visual simulations.' },
+    { status: 405 }
+  );
 }

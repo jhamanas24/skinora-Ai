@@ -56,13 +56,29 @@ function AnalyzeContent() {
         body: JSON.stringify({ imageBase64: imageData }),
       });
 
-      const uploadData = await uploadRes.json();
+      let uploadData: any = null;
+      const uploadContentType = uploadRes.headers.get('content-type') || '';
+      if (uploadContentType.includes('application/json')) {
+        uploadData = await uploadRes.json();
+      } else {
+        const text = await uploadRes.text();
+        console.error('Non-JSON response from upload endpoint:', text);
+        if (uploadRes.status === 401) {
+          router.push(`/login${redirectQuery}`);
+          return;
+        }
+        if (uploadRes.status === 413) {
+          throw new Error('The selected image is too large. Please select a smaller photo.');
+        }
+        throw new Error(`Upload server error (${uploadRes.status}). Please try again.`);
+      }
+
       if (!uploadRes.ok) {
         if (uploadRes.status === 401) {
           router.push(`/login${redirectQuery}`);
           return;
         }
-        throw new Error(uploadData.error || 'Failed to upload image');
+        throw new Error(uploadData?.error || 'Failed to upload image');
       }
 
       // 2. Perform skin analysis
@@ -75,13 +91,26 @@ function AnalyzeContent() {
         }),
       });
 
-      const analyzeData = await analyzeRes.json();
+      let analyzeData: any = null;
+      const analyzeContentType = analyzeRes.headers.get('content-type') || '';
+      if (analyzeContentType.includes('application/json')) {
+        analyzeData = await analyzeRes.json();
+      } else {
+        const text = await analyzeRes.text();
+        console.error('Non-JSON response from analyze endpoint:', text);
+        if (analyzeRes.status === 401) {
+          router.push(`/login${redirectQuery}`);
+          return;
+        }
+        throw new Error(`Analysis server error (${analyzeRes.status}). Please try again.`);
+      }
+
       if (!analyzeRes.ok) {
         if (analyzeRes.status === 401) {
           router.push(`/login${redirectQuery}`);
           return;
         }
-        throw new Error(analyzeData.error || 'Failed to analyze skin image');
+        throw new Error(analyzeData?.error || 'Failed to analyze skin image');
       }
 
       // Store current analysis info in sessionStorage for smooth multi-step flow
